@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Supla-Plex Webhook — Panel</title>
+<link rel="stylesheet" href="{{ url_for('style_css') }}">
+</head>
+<body class="page-admin">
+<div class="wrap">
+  <h1>🚀 Supla-Plex Webhook
+    <span class="nav-links">
+      <a class="btn-nav" href="{{ url_for('logs') }}">Logi</a>
+      <a class="btn-nav" href="https://cloud.supla.org/" target="_blank" rel="noopener">Supla</a>
+      <a class="btn-nav" href="#" onclick="document.getElementById('password-dialog').showModal(); return false;">Zmień hasło</a>
+      <a class="btn-nav" href="{{ url_for('logout') }}">Wyloguj</a>
+    </span>
+  </h1>
+
+  <div class="note">
+    W Plex → Ustawienia → Konto → Webhooks wpisz adres w formie <code>{{ webhook_url }}</code> (pamiętaj o końcówce <code>/webhook</code>).
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="flash {{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" action="{{ url_for('admin') }}">
+    <section>
+      <h2>Odtwarzacz Plex</h2>
+      <label for="player_uuid">UUID playera do nasłuchiwania</label>
+      <input type="text" id="player_uuid" name="player_uuid" value="{{ config.player_uuid }}" placeholder="np. 2bfa4f842327865f-com-plexapp-android">
+    </section>
+
+    <section>
+      <h2>Zdarzenia SUPLA</h2>
+      <div class="hint" style="margin-bottom:1rem;">Format: https://&lt;serwer&gt;/direct/&lt;id&gt;/&lt;kod&gt;/&lt;akcja&gt; (np. .../direct/1571/XuojuqMMD9S8RuPw/execute)</div>
+      {% for key, label, event in actions %}
+        <label for="link_{{ key }}">{{ label }} <span class="hint">({{ event }})</span></label>
+        <input type="text" id="link_{{ key }}" name="link_{{ key }}" value="{{ config.links[key] }}" placeholder="https://svr11.supla.org/direct/1571/KOD/execute">
+      {% endfor %}
+    </section>
+
+    <section>
+      <h2>Godziny działania webhooka</h2>
+      <div class="checkbox-row">
+        <input type="checkbox" id="active_hours_enabled" name="active_hours_enabled" {% if config.active_hours.enabled %}checked{% endif %}>
+        <label for="active_hours_enabled">Ogranicz działanie do wybranych godzin</label>
+      </div>
+      <div class="time-row">
+        <div>
+          <label for="active_hours_start">Od</label>
+          <input type="time" id="active_hours_start" name="active_hours_start" value="{{ config.active_hours.start }}">
+        </div>
+        <div>
+          <label for="active_hours_end">Do</label>
+          <input type="time" id="active_hours_end" name="active_hours_end" value="{{ config.active_hours.end }}">
+        </div>
+      </div>
+      <div class="hint">Poza tym przedziałem zdarzenia z Plexa są nadal widoczne w logach, ale akcje SUPLA nie są wysyłane. Zakres może obejmować północ (np. 20:00–07:00).</div>
+    </section>
+
+    <button type="submit">Zapisz konfigurację</button>
+    
+  </form>
+
+
+  <dialog id="password-dialog">
+    <h2>Zmiana hasła</h2>
+    <form method="post" action="{{ url_for('change_password') }}">
+      <input type="hidden" name="next" value="admin">
+      <label for="current_password">Aktualne hasło</label>
+      <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+      <label for="new_password">Nowe hasło</label>
+      <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+      <label for="confirm_password">Powtórz nowe hasło</label>
+      <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+      <div class="dialog-actions">
+        <button type="button" class="btn-nav btn-ghost" onclick="document.getElementById('password-dialog').close()">Anuluj</button>
+        <button type="submit">Zmień hasło</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<script>
+  {% with messages = get_flashed_messages() %}
+  {% if messages and 'hasło' in messages[0]|lower %}
+    document.getElementById('password-dialog').showModal();
+  {% endif %}
+  {% endwith %}
+</script>
+</body>
+</html>

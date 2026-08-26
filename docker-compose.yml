@@ -1,0 +1,11 @@
+services:
+  supla-plex-webhook:
+    build: .
+    container_name: supla-plex-webhook
+    environment:
+      - TZ=Europe/Warsaw
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

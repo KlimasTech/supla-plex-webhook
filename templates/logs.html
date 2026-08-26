@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="5">
+<title>Supla-Plex Webhook — Logi</title>
+<link rel="stylesheet" href="{{ url_for('style_css') }}">
+</head>
+<body class="page-logs">
+<div class="wrap wrap-wide">
+  <h1>🚀 Supla-Plex Webhook - Logi
+    <span class="nav-links">
+    <a class="btn-nav" href="{{ url_for('admin') }}">← Konfiguracja</a>
+    <a class="btn-nav" href="{{ url_for('logs') }}">Odśwież teraz</a>
+    <a class="btn-nav" href="{{ url_for('logout') }}">Wyloguj</a>
+    </span>
+  </h1>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="flash {{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <section>
+    <h2>Ostatnio wykryci playerzy</h2>
+    {% if recent_players %}
+    <table>
+      <thead>
+        <tr><th>UUID</th><th>Ostatnia akcja</th><th>Kiedy</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in recent_players %}
+        <tr>
+          <td><code>{{ p.uuid }}</code></td>
+          <td>{{ p.event }}</td>
+          <td>{{ p.ts }}</td>
+          <td class="row-actions">
+            <button type="button" class="btn-small copy-btn" data-uuid="{{ p.uuid }}">Kopiuj</button>
+            <form method="post" action="{{ url_for('set_uuid') }}">
+              <input type="hidden" name="uuid" value="{{ p.uuid }}">
+              <button type="submit" class="btn-small primary">Użyj jako UUID playera</button>
+            </form>
+            <form method="post" action="{{ url_for('dismiss_uuid') }}">
+              <input type="hidden" name="uuid" value="{{ p.uuid }}">
+              <button type="submit" class="btn-icon-danger" title="Usuń z listy">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="hint">Jeszcze nie odebrano żadnego zdarzenia Plex — wykryte UUID pojawią się tu automatycznie.</div>
+    {% endif %}
+  </section>
+
+  <div class="hint">Ostatnie {{ lines|length }} wpisów (najnowsze na górze) — strona odświeża się automatycznie co 5s.</div>
+  <pre>{% for line in lines %}{{ line }}{% endfor %}</pre>
+
+  <div class="nav" style="margin-top:1rem;">
+    <button type="button" class="btn-nav btn-danger" onclick="document.getElementById('clear-logs-dialog').showModal()">Usuń logi</button>
+  </div>
+
+  <dialog id="clear-logs-dialog">
+    <h2>Usunąć wszystkie logi?</h2>
+    <p class="hint">Tej operacji nie można cofnąć — plik logu (i jego kopie zapasowe) zostaną trwale wyczyszczone.</p>
+    <form method="post" action="{{ url_for('clear_logs') }}">
+      <div class="dialog-actions">
+        <button type="button" class="btn-nav btn-ghost" onclick="document.getElementById('clear-logs-dialog').close()">Anuluj</button>
+        <button type="submit" class="btn-nav btn-danger">Tak, usuń logi</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="password-dialog">
+    <h2>Zmiana hasła</h2>
+    <form method="post" action="{{ url_for('change_password') }}">
+      <input type="hidden" name="next" value="logs">
+      <label for="current_password">Aktualne hasło</label>
+      <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+      <label for="new_password">Nowe hasło</label>
+      <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+      <label for="confirm_password">Powtórz nowe hasło</label>
+      <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" required>
+      <div class="dialog-actions">
+        <button type="button" class="btn-nav btn-ghost" onclick="document.getElementById('password-dialog').close()">Anuluj</button>
+        <button type="submit" class="btn-nav">Zmień hasło</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<script>
+  document.querySelectorAll('.copy-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(btn.dataset.uuid).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Skopiowano!';
+        setTimeout(function () { btn.textContent = original; }, 1500);
+      });
+    });
+  });
+  {% with messages = get_flashed_messages() %}
+  {% if messages and 'hasło' in messages[0]|lower %}
+    document.getElementById('password-dialog').showModal();
+  {% endif %}
+  {% endwith %}
+</script>
+</body>
+</html>

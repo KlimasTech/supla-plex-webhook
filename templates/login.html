@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Supla-Plex Webhook — Logowanie</title>
+<link rel="stylesheet" href="{{ url_for('style_css') }}">
+</head>
+<body class="page-login">
+<form class="login-form" method="post">
+  <h1>🚀 Supla-Plex Webhook</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, msg in messages %}
+      <div class="flash {{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  <label for="username">Login</label>
+  <input type="text" id="username" name="username" autocomplete="username" required>
+  <label for="password">Hasło</label>
+  <input type="password" id="password" name="password" autocomplete="current-password" required>
+  <button type="submit">Zaloguj</button>
+</form>
+</body>
+</html>
