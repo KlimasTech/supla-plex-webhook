@@ -23,15 +23,24 @@ ACTIONS = [
     ("stop", "STOP", "media.stop"),
 ]
 
+MAX_PLAYERS = 4
+
+
+def default_player():
+    return {
+        "name": "",
+        "uuid": "",
+        "links": {key: "" for key, _, _ in ACTIONS},
+        "active_hours": {"enabled": False, "start": "20:00", "end": "07:00"},
+    }
+
 
 def default_config():
     return {
         "secret_key": secrets.token_hex(32),
         "auth": {"username": "admin", "password_hash": generate_password_hash("supla")},
-        "player_uuid": "",
-        "links": {key: "" for key, _, _ in ACTIONS},
+        "players": [default_player()],
         "dismissed_uuids": [],
-        "active_hours": {"enabled": False, "start": "20:00", "end": "07:00"},
     }
 
 
@@ -61,15 +70,33 @@ def load_config():
     if not cfg["auth"].get("password_hash"):
         cfg["auth"]["password_hash"] = generate_password_hash("supla")
         changed = True
-    cfg.setdefault("player_uuid", "")
-    cfg.setdefault("links", {})
-    for key, _, _ in ACTIONS:
-        cfg["links"].setdefault(key, "")
     cfg.setdefault("dismissed_uuids", [])
-    cfg.setdefault("active_hours", {})
-    cfg["active_hours"].setdefault("enabled", False)
-    cfg["active_hours"].setdefault("start", "20:00")
-    cfg["active_hours"].setdefault("end", "07:00")
+
+    if "players" not in cfg:
+        cfg["players"] = [
+            {
+                "name": cfg.pop("player_name", ""),
+                "uuid": cfg.pop("player_uuid", ""),
+                "links": cfg.pop("links", {key: "" for key, _, _ in ACTIONS}),
+                "active_hours": cfg.pop("active_hours", {"enabled": False, "start": "20:00", "end": "07:00"}),
+            }
+        ]
+        changed = True
+
+    if not cfg["players"]:
+        cfg["players"] = [default_player()]
+        changed = True
+
+    for player in cfg["players"]:
+        player.setdefault("name", "")
+        player.setdefault("uuid", "")
+        player.setdefault("links", {})
+        for key, _, _ in ACTIONS:
+            player["links"].setdefault(key, "")
+        player.setdefault("active_hours", {})
+        player["active_hours"].setdefault("enabled", False)
+        player["active_hours"].setdefault("start", "20:00")
+        player["active_hours"].setdefault("end", "07:00")
 
     if changed:
         save_config(cfg)
@@ -102,7 +129,9 @@ logger.addHandler(logging.StreamHandler())
 
 logger.info("🚀 Startuję Supla-Plex Webhook Listener")
 
-PLEX_EVENT_RE = re.compile(r"^\[(?P<ts>[^\]]+)\] \w+ Zdarzenie Plex: uuid=(?P<uuid>\S+) event=(?P<event>\S+)")
+PLEX_EVENT_RE = re.compile(
+    r"^\[(?P<ts>[^\]]+)\] \w+ Zdarzenie Plex: (?:(?P<name>.+) )?uuid=(?P<uuid>\S+) event=(?P<event>\S+)"
+)
 DIRECT_LINK_RE = re.compile(r"^(?P<base>https?://[^/]+/direct/[^/]+)/(?P<code>[^/]+)/(?P<action>[^/]+)/?$")
 
 
@@ -113,8 +142,7 @@ def parse_direct_link(link):
     return m.group("base"), m.group("code"), m.group("action")
 
 
-def is_within_active_hours(cfg):
-    ah = cfg.get("active_hours", {})
+def is_within_active_hours(ah):
     if not ah.get("enabled"):
         return True
     try:
@@ -128,11 +156,16 @@ def is_within_active_hours(cfg):
     return now >= start or now <= end
 
 
+TRACKED_EVENTS = {plex_event for _, _, plex_event in ACTIONS}
+
+
 def extract_recent_players(lines_newest_first, dismissed_uuids, limit=10):
     seen = {}
     for line in lines_newest_first:
         m = PLEX_EVENT_RE.match(line)
-        if not m or m.group("uuid") in seen or m.group("uuid") in dismissed_uuids:
+        if not m or m.group("event") not in TRACKED_EVENTS:
+            continue
+        if m.group("uuid") in seen or m.group("uuid") in dismissed_uuids:
             continue
         seen[m.group("uuid")] = {
             "uuid": m.group("uuid"),
@@ -185,19 +218,50 @@ def logout():
 def admin():
     cfg = load_config()
     if request.method == "POST":
-        cfg["player_uuid"] = request.form.get("player_uuid", "").strip()
-        for key, _, _ in ACTIONS:
-            cfg["links"][key] = request.form.get(f"link_{key}", "").strip()
-        cfg["active_hours"] = {
-            "enabled": request.form.get("active_hours_enabled") == "on",
-            "start": request.form.get("active_hours_start", "").strip() or "20:00",
-            "end": request.form.get("active_hours_end", "").strip() or "07:00",
-        }
+        players = []
+        for i in range(len(cfg["players"])):
+            players.append(
+                {
+                    "name": request.form.get(f"player_{i}_name", "").strip(),
+                    "uuid": request.form.get(f"player_{i}_uuid", "").strip(),
+                    "links": {
+                        key: request.form.get(f"link_{i}_{key}", "").strip() for key, _, _ in ACTIONS
+                    },
+                    "active_hours": {
+                        "enabled": request.form.get(f"active_hours_{i}_enabled") == "on",
+                        "start": request.form.get(f"active_hours_{i}_start", "").strip() or "20:00",
+                        "end": request.form.get(f"active_hours_{i}_end", "").strip() or "07:00",
+                    },
+                }
+            )
+        cfg["players"] = players
         save_config(cfg)
         flash("Zapisano konfigurację.", "success")
         return redirect(url_for("admin"))
     webhook_url = request.host_url.rstrip("/") + "/webhook"
-    return render_template("admin.html", config=cfg, actions=ACTIONS, webhook_url=webhook_url)
+    return render_template(
+        "admin.html", config=cfg, actions=ACTIONS, webhook_url=webhook_url, max_players=MAX_PLAYERS
+    )
+
+
+@app.route("/admin/players/count", methods=["POST"])
+@login_required
+def set_player_count():
+    cfg = load_config()
+    try:
+        count = int(request.form.get("count", "1"))
+    except ValueError:
+        count = 1
+    count = max(1, min(MAX_PLAYERS, count))
+    players = cfg["players"]
+    if count > len(players):
+        players.extend(default_player() for _ in range(count - len(players)))
+    else:
+        players = players[:count]
+    cfg["players"] = players
+    save_config(cfg)
+    flash(f"Ustawiono liczbę odtwarzaczy: {count}", "success")
+    return redirect(url_for("admin"))
 
 
 @app.route("/admin/password", methods=["POST"])
@@ -234,7 +298,26 @@ def logs():
     last_lines = lines[-300:]
     last_lines.reverse()
     recent_players = extract_recent_players(last_lines, cfg["dismissed_uuids"])
-    return render_template("logs.html", lines=last_lines, recent_players=recent_players)
+    player_names_by_uuid = {p["uuid"]: p["name"] for p in cfg["players"] if p["uuid"] and p["name"]}
+    return render_template(
+        "logs.html", lines=last_lines, recent_players=recent_players, player_names_by_uuid=player_names_by_uuid
+    )
+
+
+@app.route("/admin/logs/download")
+@login_required
+def download_logs():
+    try:
+        with open(LOG_PATH, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+    except FileNotFoundError:
+        content = ""
+    filename = f"supla-plex-webhook_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @app.route("/admin/clear-logs", methods=["POST"])
@@ -254,18 +337,6 @@ def clear_logs():
         file_handler.release()
     logger.info(f"Logi wyczyszczone przez {request.remote_addr}")
     flash("Logi zostały wyczyszczone.", "success")
-    return redirect(url_for("logs"))
-
-
-@app.route("/admin/set-uuid", methods=["POST"])
-@login_required
-def set_uuid():
-    uuid = request.form.get("uuid", "").strip()
-    if uuid:
-        cfg = load_config()
-        cfg["player_uuid"] = uuid
-        save_config(cfg)
-        flash(f"Ustawiono UUID playera: {uuid}", "success")
     return redirect(url_for("logs"))
 
 
@@ -302,21 +373,26 @@ def webhook():
     cfg = load_config()
     player_uuid = (data.get("Player") or {}).get("uuid")
     event = data.get("event")
-    logger.info(f"Zdarzenie Plex: uuid={player_uuid} event={event}")
+    matched = next((p for p in cfg["players"] if p["uuid"] and p["uuid"] == player_uuid), None)
+    if matched and matched["name"]:
+        logger.info(f"Zdarzenie Plex: {matched['name']} uuid={player_uuid} event={event}")
+    else:
+        logger.info(f"Zdarzenie Plex: uuid={player_uuid} event={event}")
 
-    if not cfg["player_uuid"] or player_uuid != cfg["player_uuid"]:
+    if not matched:
         return "🚀 Webhook received (inny player, ignoruję)"
 
-    if not is_within_active_hours(cfg):
+    if not is_within_active_hours(matched["active_hours"]):
         logger.info(
-            f"Poza godzinami aktywności ({cfg['active_hours']['start']}–{cfg['active_hours']['end']}) — pomijam akcję"
+            f"Poza godzinami aktywności ({matched['active_hours']['start']}–{matched['active_hours']['end']}) "
+            f"— pomijam akcję dla {matched['name'] or player_uuid}"
         )
         return "🚀 Webhook received (poza godzinami aktywności)"
 
     for key, label, plex_event in ACTIONS:
         if event != plex_event:
             continue
-        link = cfg["links"].get(key)
+        link = matched["links"].get(key)
         if not link:
             logger.info(f"Zdarzenie {label} pasuje, ale nie skonfigurowano linku — pomijam")
             break

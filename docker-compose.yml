@@ -1,7 +1,7 @@
 services:
   supla-plex-webhook:
     build:
-      context: /home/user/appdata/supla-plex-webhook/
+      context: .
       dockerfile: supla-plex-webhook
     container_name: supla-plex-webhook
     environment:
@@ -9,5 +9,5 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /home/user/appdata/supla-plex-webhook/data:/data
+      - ./data:/data
     restart: unless-stopped

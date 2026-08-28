@@ -2,6 +2,7 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="5">
 <title>Supla-Plex Webhook — Logi</title>
 <link rel="stylesheet" href="{{ url_for('style_css') }}">
@@ -25,6 +26,7 @@
   <section>
     <h2>Ostatnio wykryci playerzy</h2>
     {% if recent_players %}
+    <div class="table-scroll">
     <table>
       <thead>
         <tr><th>UUID</th><th>Ostatnia akcja</th><th>Kiedy</th><th></th></tr>
@@ -32,15 +34,11 @@
       <tbody>
         {% for p in recent_players %}
         <tr>
-          <td><code>{{ p.uuid }}</code></td>
-          <td>{{ p.event }}</td>
-          <td>{{ p.ts }}</td>
-          <td class="row-actions">
+          <td data-label="UUID">{% set nm = player_names_by_uuid.get(p.uuid) %}{% if nm %}{{ nm }} <code>({{ p.uuid }})</code>{% else %}<code>{{ p.uuid }}</code>{% endif %}</td>
+          <td data-label="Ostatnia akcja">{{ p.event }}</td>
+          <td data-label="Kiedy">{{ p.ts }}</td>
+          <td class="row-actions" data-label="Akcje">
             <button type="button" class="btn-small copy-btn" data-uuid="{{ p.uuid }}">Kopiuj</button>
-            <form method="post" action="{{ url_for('set_uuid') }}">
-              <input type="hidden" name="uuid" value="{{ p.uuid }}">
-              <button type="submit" class="btn-small primary">Użyj jako UUID playera</button>
-            </form>
             <form method="post" action="{{ url_for('dismiss_uuid') }}">
               <input type="hidden" name="uuid" value="{{ p.uuid }}">
               <button type="submit" class="btn-icon-danger" title="Usuń z listy">✕</button>
@@ -50,6 +48,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <div class="hint">Jeszcze nie odebrano żadnego zdarzenia Plex — wykryte UUID pojawią się tu automatycznie.</div>
     {% endif %}
@@ -59,6 +58,7 @@
   <pre>{% for line in lines %}{{ line }}{% endfor %}</pre>
 
   <div class="nav" style="margin-top:1rem;">
+    <a class="btn-nav btn-success" href="{{ url_for('download_logs') }}">Zapisz logi</a>
     <button type="button" class="btn-nav btn-danger" onclick="document.getElementById('clear-logs-dialog').showModal()">Usuń logi</button>
   </div>
 
@@ -91,13 +91,35 @@
   </dialog>
 </div>
 <script>
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
   document.querySelectorAll('.copy-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      navigator.clipboard.writeText(btn.dataset.uuid).then(function () {
+      var text = btn.dataset.uuid;
+      var showCopied = function () {
         var original = btn.textContent;
         btn.textContent = 'Skopiowano!';
         setTimeout(function () { btn.textContent = original; }, 1500);
-      });
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(function () {
+          if (fallbackCopy(text)) showCopied();
+        });
+      } else if (fallbackCopy(text)) {
+        showCopied();
+      }
     });
   });
   {% with messages = get_flashed_messages() %}
