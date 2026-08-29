@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="refresh" content="5">
 <title>Supla-Plex Webhook — Logi</title>
+<link rel="icon" type="image/png" href="{{ url_for('favicon') }}">
 <link rel="stylesheet" href="{{ url_for('style_css') }}">
 </head>
 <body class="page-logs">
 <div class="wrap wrap-wide">
-  <h1>🚀 Supla-Plex Webhook - Logi
+  <h1>
+    <span class="title-group"><img src="{{ url_for('favicon') }}" alt="" class="app-icon">Supla-Plex Webhook - Logi</span>
     <span class="nav-links">
     <a class="btn-nav" href="{{ url_for('admin') }}">← Konfiguracja</a>
     <a class="btn-nav" href="{{ url_for('logs') }}">Odśwież teraz</a>
@@ -89,6 +91,10 @@
       </div>
     </form>
   </dialog>
+
+  <footer class="site-footer">
+    Copyright &copy; by <a href="https://klimastech.eu.org" target="_blank" rel="noopener">KlimasTech.eu.org</a> | <a href="https://github.com/KlimasTech/supla-plex-webhook" target="_blank" rel="noopener">GitHub</a>
+  </footer>
 </div>
 <script>
   function fallbackCopy(text) {

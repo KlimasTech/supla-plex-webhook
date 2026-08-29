@@ -9,7 +9,7 @@ from datetime import datetime
 from functools import wraps
 
 import requests
-from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, send_from_directory, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 CONFIG_PATH = os.environ.get("CONFIG_PATH", "/data/config.json")
@@ -28,6 +28,7 @@ MAX_PLAYERS = 4
 
 def default_player():
     return {
+        "enabled": True,
         "name": "",
         "uuid": "",
         "links": {key: "" for key, _, _ in ACTIONS},
@@ -88,6 +89,7 @@ def load_config():
         changed = True
 
     for player in cfg["players"]:
+        player.setdefault("enabled", True)
         player.setdefault("name", "")
         player.setdefault("uuid", "")
         player.setdefault("links", {})
@@ -109,7 +111,8 @@ app.secret_key = load_config()["secret_key"]
 
 @app.after_request
 def add_no_cache_headers(response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    if request.path != "/favicon.png":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 
 
@@ -117,6 +120,11 @@ def add_no_cache_headers(response):
 def style_css():
     css = render_template("style.css", style_version=datetime.now().isoformat())
     return Response(css, mimetype="text/css")
+
+
+@app.route("/favicon.png")
+def favicon():
+    return send_from_directory("templates", "favicon.png", mimetype="image/png", max_age=86400)
 
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 file_handler = logging.handlers.RotatingFileHandler(LOG_PATH, maxBytes=1_000_000, backupCount=3)
@@ -222,6 +230,7 @@ def admin():
         for i in range(len(cfg["players"])):
             players.append(
                 {
+                    "enabled": request.form.get(f"player_{i}_enabled") == "on",
                     "name": request.form.get(f"player_{i}_name", "").strip(),
                     "uuid": request.form.get(f"player_{i}_uuid", "").strip(),
                     "links": {
@@ -381,6 +390,10 @@ def webhook():
 
     if not matched:
         return "🚀 Webhook received (inny player, ignoruję)"
+
+    if not matched["enabled"]:
+        logger.info(f"Odtwarzacz {matched['name'] or player_uuid} jest wyłączony — pomijam akcję")
+        return "🚀 Webhook received (odtwarzacz wyłączony)"
 
     if not is_within_active_hours(matched["active_hours"]):
         logger.info(

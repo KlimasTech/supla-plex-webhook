@@ -4,21 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Supla-Plex Webhook — Logowanie</title>
+<link rel="icon" type="image/png" href="{{ url_for('favicon') }}">
 <link rel="stylesheet" href="{{ url_for('style_css') }}">
 </head>
 <body class="page-login">
-<form class="login-form" method="post">
-  <h1>🚀 Supla-Plex Webhook</h1>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, msg in messages %}
-      <div class="flash {{ category }}">{{ msg }}</div>
-    {% endfor %}
-  {% endwith %}
-  <label for="username">Login</label>
-  <input type="text" id="username" name="username" autocomplete="username" required>
-  <label for="password">Hasło</label>
-  <input type="password" id="password" name="password" autocomplete="current-password" required>
-  <button type="submit">Zaloguj</button>
-</form>
+<div class="login-wrap">
+  <form class="login-form" method="post">
+    <h1><img src="{{ url_for('favicon') }}" alt="" class="app-icon"> Supla-Plex Webhook</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    <label for="username">Login</label>
+    <input type="text" id="username" name="username" autocomplete="username" required>
+    <label for="password">Hasło</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
+    <button type="submit">Zaloguj</button>
+  </form>
+  <footer class="site-footer">
+    Copyright &copy; by <a href="https://klimastech.eu.org" target="_blank" rel="noopener">KlimasTech.eu.org</a> | <a href="https://github.com/KlimasTech/supla-plex-webhook" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+</div>
 </body>
 </html>

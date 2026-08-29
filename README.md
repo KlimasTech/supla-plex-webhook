@@ -4,8 +4,9 @@ Aplikacja webowa (Flask + Docker) łącząca webhooki z **Plex Media Server** ze
 
 ## Funkcje
 
-- Obsługa 4 zdarzeń Plex: `media.play`, `media.pause`, `media.resume`, `media.stop`.
+- Obsługa 4 zdarzeń Plex: `media.play`, `media.pause`, `media.resume`, `media.stop` (oznaczonych w panelu ikonkami ▶ ▶▶ ⏸ ■).
 - **Wiele odtwarzaczy** (do 4) — liczba ustawiana z listy rozwijanej, każdy w osobnej zakładce panelu z własną:
+  - checkboxem **Włączony** (pozwala wyłączyć obsługę danego odtwarzacza bez usuwania jego konfiguracji),
   - nazwą (wyświetlaną potem w logach zamiast surowego UUID),
   - UUID odtwarzacza Plex,
   - kompletem 4 linków SUPLA,
@@ -13,7 +14,7 @@ Aplikacja webowa (Flask + Docker) łącząca webhooki z **Plex Media Server** ze
 - Panel www zabezpieczony logowaniem, z modalem do zmiany hasła dostępnym z każdej podstrony.
 - Podgląd logów z automatycznym odświeżaniem (co 5s), przyciskiem **zapisu logów do pliku** i przyciskiem **czyszczenia logów** (z potwierdzeniem w oknie modalnym).
 - Automatyczne wykrywanie UUID odtwarzaczy z przychodzących webhooków (tabela „Ostatnio wykryci playerzy”) — tylko dla zdarzeń play/pause/resume/stop, z przyciskiem kopiowania UUID do schowka i możliwością odrzucenia wpisu.
-- Interfejs w pełni responsywny (telefon/tablet/desktop).
+- Interfejs w pełni responsywny (telefon/tablet/desktop) i utrzymany w ciemnej kolorystyce nawiązującej do Plexa (grafitowe tło, złoty akcent), z własną ikonką aplikacji.
 - Konfiguracja zapisywana w pliku JSON na wolumenie Docker — przeżywa restart kontenera. Stary format (jeden odtwarzacz) migruje się automatycznie do nowego przy pierwszym uruchomieniu po aktualizacji.
 
 ## Wymagania
@@ -52,6 +53,8 @@ Pamiętaj o końcówce `/webhook` — sam adres bez tej ścieżki nie zadziała.
 2. Dla każdego odtwarzacza pojawi się osobna zakładka — przełączasz się między nimi bez przeładowania strony.
 3. Zmniejszenie liczby odtwarzaczy poprosi o potwierdzenie (usuwa konfigurację zakładek z końca listy).
 
+Jeśli chcesz tymczasowo przestać obsługiwać dane urządzenie bez usuwania jego konfiguracji (linków, godzin itd.), odznacz checkbox **Włączony** na jego zakładce — webhook będzie wtedy ignorował zdarzenia z tego odtwarzacza (nadal widoczne w logach z adnotacją „jest wyłączony”).
+
 ## Konfiguracja SUPLA (dla każdego odtwarzacza)
 
 Każde z czterech zdarzeń (PLAY / RESUME / PAUSE / STOP) wymaga jednego pola — pełnego linku bezpośredniego w formacie:
@@ -82,12 +85,14 @@ Każdy odtwarzacz ma własne, niezależne ustawienie „Godziny działania webho
 ## Struktura projektu
 
 ```
-app.py                   # aplikacja Flask (webhook + panel administracyjny)
-templates/               # szablony HTML i wspólny arkusz stylów (style.css)
-supla-plex-webhook       # Dockerfile
+app.py                              # aplikacja Flask (webhook + panel administracyjny)
+templates/                          # szablony HTML, wspólny arkusz stylów (style.css) i ikony
+templates/supla-plex-webhook-icon.png  # ikona aplikacji (źródło)
+templates/favicon.png               # zoptymalizowana wersja ikony, serwowana jako favicon
+supla-plex-webhook                  # Dockerfile
 docker-compose.yml
 requirements.txt
-data/                    # (tworzone automatycznie) config.json + logi, wolumen Docker
+data/                                # (tworzone automatycznie) config.json + logi, wolumen Docker
 ```
 
 ## Bezpieczeństwo

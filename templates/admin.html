@@ -4,11 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Supla-Plex Webhook — Panel</title>
+<link rel="icon" type="image/png" href="{{ url_for('favicon') }}">
 <link rel="stylesheet" href="{{ url_for('style_css') }}">
 </head>
 <body class="page-admin">
 <div class="wrap">
-  <h1>🚀 Supla-Plex Webhook
+  <h1>
+    <span class="title-group"><img src="{{ url_for('favicon') }}" alt="" class="app-icon">Supla-Plex Webhook</span>
     <span class="nav-links">
       <a class="btn-nav" href="{{ url_for('logs') }}">Logi</a>
       <a class="btn-nav" href="https://cloud.supla.org/" target="_blank" rel="noopener">Supla</a>
@@ -42,8 +44,8 @@
 
   <div class="tab-bar">
     {% for player in config.players %}
-      <button type="button" class="btn-nav tab-btn{% if loop.first %} active{% endif %}" data-tab="{{ loop.index0 }}" onclick="showPlayerTab({{ loop.index0 }})">
-        {{ player.name if player.name else 'Odtwarzacz ' ~ loop.index }}
+      <button type="button" class="btn-nav tab-btn{% if loop.first %} active{% endif %}{% if not player.enabled %} tab-disabled{% endif %}" data-tab="{{ loop.index0 }}" onclick="showPlayerTab({{ loop.index0 }})">
+        {{ player.name if player.name else 'Odtwarzacz ' ~ loop.index }}{% if not player.enabled %} (wyłączony){% endif %}
       </button>
     {% endfor %}
   </div>
@@ -54,6 +56,11 @@
     <div class="player-tab" data-tab="{{ i }}"{% if i != 0 %} style="display:none;"{% endif %}>
       <section>
         <h2>Odtwarzacz {{ i + 1 }}</h2>
+        <div class="checkbox-row">
+          <input type="checkbox" id="player_{{ i }}_enabled" name="player_{{ i }}_enabled" {% if player.enabled %}checked{% endif %}>
+          <label for="player_{{ i }}_enabled">Włączony</label>
+        </div>
+        <div class="hint" style="margin-bottom:1rem;">Wyłączenie zatrzymuje obsługę tego odtwarzacza (webhook go ignoruje), ale zachowuje całą jego konfigurację.</div>
         <label for="player_{{ i }}_name">Nazwa playera (opcjonalna)</label>
         <input type="text" id="player_{{ i }}_name" name="player_{{ i }}_name" value="{{ player.name }}" placeholder="np. Telewizor w salonie">
         <label for="player_{{ i }}_uuid">UUID playera do nasłuchiwania</label>
@@ -64,8 +71,14 @@
       <section>
         <h2>Zdarzenia SUPLA</h2>
         <div class="hint" style="margin-bottom:1rem;">Format: https://&lt;serwer&gt;/direct/&lt;id&gt;/&lt;kod&gt;/&lt;akcja&gt; (np. .../direct/1571/XuojuqMMD9S8RuPw/execute)</div>
+        {% set action_icons = {
+          'play': '▶',
+          'resume': '▶▶',
+          'pause': '<span class="icon-pause"><span></span><span></span></span>',
+          'stop': '■'
+        } %}
         {% for key, label, event in actions %}
-          <label for="link_{{ i }}_{{ key }}">{{ label }} <span class="hint">({{ event }})</span></label>
+          <label for="link_{{ i }}_{{ key }}"><span class="action-icon">{{ action_icons.get(key, '') | safe }}</span> {{ label }} <span class="hint">({{ event }})</span></label>
           <input type="text" id="link_{{ i }}_{{ key }}" name="link_{{ i }}_{{ key }}" value="{{ player.links[key] }}" placeholder="https://svr11.supla.org/direct/1571/KOD/execute">
         {% endfor %}
       </section>
@@ -119,6 +132,10 @@
       </div>
     </form>
   </dialog>
+
+  <footer class="site-footer">
+    Copyright &copy; by <a href="https://klimastech.eu.org" target="_blank" rel="noopener">KlimasTech.eu.org</a> | <a href="https://github.com/KlimasTech/supla-plex-webhook" target="_blank" rel="noopener">GitHub</a>
+  </footer>
 </div>
 <script>
   function showPlayerTab(index) {
